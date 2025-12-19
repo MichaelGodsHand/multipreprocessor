@@ -15,7 +15,8 @@ from config_loader import (
 )
 
 # Import all from original preprocessor
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Request
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form
+from fastapi import Request as FastAPIRequest
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -112,13 +113,14 @@ except ImportError:
 try:
     from google.oauth2.credentials import Credentials
     from google_auth_oauthlib.flow import InstalledAppFlow
-    from google.auth.transport.requests import Request
+    from google.auth.transport.requests import Request as GoogleRequest
     from googleapiclient.discovery import build
     import pickle
     GOOGLE_CALENDAR_AVAILABLE = True
 except ImportError:
     print("Google Calendar libraries not found. Please install them using: pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client")
     GOOGLE_CALENDAR_AVAILABLE = False
+    GoogleRequest = None
 
 # Load environment variables
 load_dotenv()
@@ -188,7 +190,7 @@ class JobStatus(str, Enum):
     FAILED = "failed"
 
 
-def get_client_id_from_request(request: Request) -> str:
+def get_client_id_from_request(request: FastAPIRequest) -> str:
     """Extract client_id from query params or headers"""
     client_id = request.query_params.get("client_id") or request.headers.get("X-Client-ID")
     if not client_id:
@@ -332,7 +334,7 @@ async def health_check():
 
 @app.post("/extract")
 async def extract_text(
-    request: Request,
+    request: FastAPIRequest,
     files: List[UploadFile] = File(...),
     use_ocr: bool = Form(True),
     webhook_url: Optional[str] = Form(None)
@@ -355,7 +357,7 @@ async def extract_text(
 
 
 @app.post("/query")
-async def query_documents(request: Request, query_request: dict):
+async def query_documents(request: FastAPIRequest, query_request: dict):
     """Query the stored PDF documents using GPT-4o, ChromaDB (multi-tenant)"""
     client_id = get_client_id_from_request(request)
     
